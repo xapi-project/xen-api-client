@@ -15,21 +15,23 @@
  *
  *)
 open Core.Std
+open Async.Std
 open Xen_api
 
 module IO = struct
 
-	type 'a t = 'a Async.Std.Deferred.t
-	let (>>=) = Async.Std.Deferred.(>>=)
-	let return = Async.Std.Deferred.return
+	type 'a t = 'a Deferred.t
+	let (>>=) = Deferred.(>>=)
+	let (>>) m n = m >>= fun _ -> n
+	let return = Deferred.return
 
-	type ic = (unit -> unit Async.Std.Deferred.t) * Async.Std.Reader.t
-	type oc = (unit -> unit Async.Std.Deferred.t) * Async.Std.Writer.t
+	type ic = (unit -> unit Deferred.t) * Reader.t
+	type oc = (unit -> unit Deferred.t) * Writer.t
 
-	let iter fn x = Async.Std.Deferred.List.iter x ~f:fn 
+	let iter fn x = Deferred.List.iter x ~f:fn 
 
 	let read_line (_, ic) =
-		Async.Std.Reader.read_line ic >>=
+		Reader.read_line ic >>=
 			function
 			|`Ok s -> return (Some s)
 			|`Eof -> return None
@@ -37,24 +39,25 @@ module IO = struct
 	let read = 
 		let buf = String.create 4096 in
 		fun (_, ic) len ->
-			Async.Std.Reader.read ic ~len buf >>=
+			Reader.read ic ~len buf >>=
 				function
 				|`Ok len' -> return (String.sub buf 0 len')
 				|`Eof -> return ""
 
-	let read_exactly (_, ic) buf pos len =
-		Async.Std.Reader.really_read ic ~pos ~len buf >>=
-			function
-			|`Ok -> return true
-			|`Eof _ -> return false
+	let read_exactly (_, ic) len =
+		let buf = String.create len in
+		Reader.really_read ic ~pos:0 ~len buf >>=
+		function
+		|`Ok -> return (Some buf)
+		|`Eof _ -> return None
 
 	let write (_, oc) buf =
-		Async.Std.Writer.write oc buf;
+		Writer.write oc buf;
 		return ()
 
 	let write_line (_, oc) buf =
-		Async.Std.Writer.write oc buf;
-		Async.Std.Writer.write oc "\r\n";
+		Writer.write oc buf;
+		Writer.write oc "\r\n";
 		return ()
 
 	let close ((close1, _), (close2, _)) =
@@ -66,9 +69,9 @@ module IO = struct
 				let port = match Uri.port uri with | None -> 80 | Some port -> port in
 				begin match Uri.host uri with
 				| Some host ->
-					Async.Std.Tcp.connect (Async.Std.Tcp.to_host_and_port host port)
-					>>= fun (ic, oc) ->
-					return (Ok (((fun () -> Async.Std.Reader.close ic), ic), ((fun () -> Async.Std.Writer.close oc), oc)))					
+					Tcp.connect (Tcp.to_host_and_port host port)
+					>>= fun (_, ic, oc) ->
+					return (Ok (((fun () -> Reader.close ic), ic), ((fun () -> Writer.close oc), oc)))					
 				| None ->
 					return (Error(Failed_to_resolve_hostname ""))
 				end
@@ -77,7 +80,7 @@ module IO = struct
 			| None ->
 				return (Error(Unsupported_scheme ""))
 
-	let sleep s = Async.Std.after (sec s)
+	let sleep s = after (sec s)
 
 	let gettimeofday = Unix.gettimeofday
 
@@ -93,24 +96,24 @@ let exn_to_string = function
 let do_it uri string =
 	let uri = Uri.of_string uri in
 	let connection = M.make uri in
-	let (>>=) = Async.Std.Deferred.(>>=) in
+	let (>>=) = Deferred.(>>=) in
 	M.rpc connection string
 	>>= function
-		| Ok x -> Async.Std.return x
+		| Ok x -> return x
 		| Error e ->
 			Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
 			failwith "XXX: figure out how core/async handles errors"
 
 let make ?(timeout=30.) uri call =
-	let (>>=) = Async.Std.Deferred.(>>=) in
+	let (>>=) = Deferred.(>>=) in
 	let req = Xmlrpc.string_of_call call in
-	do_it uri req >>= fun x -> Async.Std.return (Xmlrpc.response_of_string x)
+	do_it uri req >>= fun x -> return (Xmlrpc.response_of_string x)
 
 let make_json ?(timeout=30.) uri call =
-	let (>>=) = Async.Std.Deferred.(>>=) in
+	let (>>=) = Deferred.(>>=) in
 	let req = Jsonrpc.string_of_call call in
-	do_it uri req >>= fun x -> Async.Std.return (Jsonrpc.response_of_string x)
+	do_it uri req >>= fun x -> return (Jsonrpc.response_of_string x)
 
 
-module Client = Client.ClientF(Async.Std.Deferred)
+module Client = Client.ClientF(Deferred)
 include Client
