@@ -21,6 +21,7 @@ module IO = struct
 
 	type 'a t = 'a Async.Std.Deferred.t
 	let (>>=) = Async.Std.Deferred.(>>=)
+	let (>>) m n = m >>= fun _ -> n
 	let return = Async.Std.Deferred.return
 
 	type ic = (unit -> unit Async.Std.Deferred.t) * Async.Std.Reader.t
@@ -42,11 +43,12 @@ module IO = struct
 				|`Ok len' -> return (String.sub buf 0 len')
 				|`Eof -> return ""
 
-	let read_exactly (_, ic) buf pos len =
-		Async.Std.Reader.really_read ic ~pos ~len buf >>=
-			function
-			|`Ok -> return true
-			|`Eof _ -> return false
+	let read_exactly (_, ic) len =
+		let buf = String.create len in
+		Async.Std.Reader.really_read ic ~pos:0 ~len buf >>=
+		function
+		|`Ok -> return (Some buf)
+		|`Eof _ -> return None
 
 	let write (_, oc) buf =
 		Async.Std.Writer.write oc buf;
@@ -67,7 +69,7 @@ module IO = struct
 				begin match Uri.host uri with
 				| Some host ->
 					Async.Std.Tcp.connect (Async.Std.Tcp.to_host_and_port host port)
-					>>= fun (ic, oc) ->
+					>>= fun (_, ic, oc) ->
 					return (Ok (((fun () -> Async.Std.Reader.close ic), ic), ((fun () -> Async.Std.Writer.close oc), oc)))					
 				| None ->
 					return (Error(Failed_to_resolve_hostname ""))
