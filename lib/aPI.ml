@@ -921,7 +921,7 @@ module type API = sig
     val set_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_session -> value:string_to_string_map -> unit
     val add_to_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_session -> key:string -> value:string -> unit
     val remove_from_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_session -> key:string -> unit
-    val login_with_password : rpc:(Rpc.call -> Rpc.response) -> uname:string -> pwd:string -> version:string -> ref_session
+    val login_with_password : rpc:(Rpc.call -> Rpc.response) -> uname:string -> pwd:string -> version:string -> originator:string -> ref_session
     val logout : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> unit
     val change_password : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> old_pwd:string -> new_pwd:string -> unit
     val slave_login : rpc:(Rpc.call -> Rpc.response) -> host:ref_host -> psecret:string -> ref_session
