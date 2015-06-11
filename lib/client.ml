@@ -2565,12 +2565,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "session.remove_from_other_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
     (**  *)
-    let login_with_password ~rpc ~uname ~pwd ~version =
+    let login_with_password ~rpc ~uname ~pwd ~version ~originator =
       let uname = rpc_of_string uname in
       let pwd = rpc_of_string pwd in
       let version = rpc_of_string version in
+      let originator = rpc_of_string originator in
       
-      rpc_wrapper rpc "session.login_with_password" [ uname; pwd; version ] >>= fun x -> return (ref_session_of_rpc  x)
+      rpc_wrapper rpc "session.login_with_password" [ uname; pwd; version; originator ] >>= fun x -> return (ref_session_of_rpc  x)
     (**  *)
     let logout ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in

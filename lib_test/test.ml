@@ -10,7 +10,7 @@ let testrpc x =
 			Lwt.return (Xml.parse_string r.content)
 
 let _ =
-	Client.Session.login_with_password testrpc "root" "xenroot" "1.0" >>= fun x ->
+	Client.Session.login_with_password testrpc "root" "xenroot" "1.0" "test.ml" >>= fun x ->
 	Client.VM.get_all_records testrpc x >>= fun l ->
 	Firebug.console##log (Js.string (Printf.sprintf "Length=%d" (List.length l)));
 	Lwt.return ()
