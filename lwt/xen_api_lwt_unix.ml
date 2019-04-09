@@ -90,12 +90,11 @@ module Lwt_unix_IO = struct
 			Lwt.catch
 				(fun () ->
 					 Lwt.catch (fun () ->
-							 Lwt_unix.connect fd sockaddr
+							 Lwt_unix.connect fd sockaddr >>= fun () ->
+							 Lwt_ssl.ssl_connect fd sslctx
 						 ) (fun e ->
 							 Lwt_unix.close fd >>= fun () -> Lwt.fail e
-						 )
-					 >>= fun () ->
-					 Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
+						 ) >>= fun sock ->
 					 let ic = Lwt_ssl.in_channel_of_descr sock in
 					 let oc = Lwt_ssl.out_channel_of_descr sock in
 					 return (Ok ((return, ic), ((fun () -> Lwt_ssl.close sock), oc))))
